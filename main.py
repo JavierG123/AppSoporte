@@ -28,6 +28,7 @@ InstallDir = 'Instaladores'
 
 
 #======================Funciones===============================#
+
 def exit ():
     try :
         os.chdir(RootPath)#Vamos al directorio principal
@@ -291,6 +292,7 @@ window = tkinter.Tk()
 logo = tkinter.PhotoImage(file=config["icon"])
 window.iconphoto(False, logo)
 window.title("Instalador de aplicaciones")
+window.resizable(width=False, height=False)
 
 #main frame
 frame = tkinter.Frame(window)
@@ -352,9 +354,6 @@ for i, tool in enumerate(tools):
     toolCheckbox.grid(row=i, column=0, padx=5, pady=5)
     genesysTool_check.append(toolCheckbox)
 
-#genesysFolder_button = tkinter.Button(genesys_label_frame, text="Donde deseas guardas las GenesysTools?", command=saveFolder)
-#genesysFolder_button.grid(row=i+1 , column=0, padx=10, pady=10)
-
 downloadButton = tkinter.Button(secondStep_frame, text="Descargar", command=downloadInstallers)
 downloadButton.grid(row=2, column=0, padx=10, pady=15)
 
@@ -374,7 +373,6 @@ saveAsk_check.grid(row=0 , column=0, padx=10, pady=10)
 
 exitButton = tkinter.Button(thirdStep_frame, text="Salir", command=exit)
 exitButton.grid(row= 1, column=0, padx=10, pady=10)
-
 
 
 window.mainloop()
