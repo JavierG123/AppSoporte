@@ -146,7 +146,7 @@ def downloadInstallers(*args):
         for i, programa in enumerate(tools):
             if check_tool[i].get() == 1:
                 NeededTools.append(genesysTool_check[i].cget("text"))
-        if len(NeededApps) == 0:
+        if len(NeededApps) == 0 and len(NeededTools) == 0:
             messagebox.showinfo("Alerta","No hay apps seleccionadas para Descargar")
             os.chdir(RootPath)
             shutil.rmtree(os.getcwd()+'\\'+InstallDir)
