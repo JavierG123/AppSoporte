@@ -18,6 +18,7 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
 
 #=============================CONFIGURACION INICIAL=============================#
+
 with open('config.json') as f:
     config = json.load(f)
 
@@ -26,9 +27,9 @@ RootPath = os.getcwd()
 #Directorio para guardar los instaladores
 InstallDir = 'Instaladores'
 
-
 #======================Funciones===============================#
 
+#Funcion para salir del programa
 def exit ():
     try :
         os.chdir(RootPath)#Vamos al directorio principal
@@ -41,7 +42,7 @@ def exit ():
         window.destroy()
     return   
 
-
+#Funcion para instalar los programas clickeados
 def installPrograms():
     os.chdir(RootPath)
     window.withdraw()
@@ -83,7 +84,7 @@ def installPrograms():
     thread2.start()
     windowInstall.after(100, check_function)
 
-
+#Funcion para descargar archivos desde GoogleDrive
 def downloadFromGDrive(RootPath, real_file_id):
     SCOPES = ['https://www.googleapis.com/auth/drive']
     InstallDir = 'Instaladores'
@@ -112,7 +113,8 @@ def downloadFromGDrive(RootPath, real_file_id):
 
     return file.getvalue()
 
-
+#Utilizando la funcion downloadFromGDrive, leemos las apps/tools con check, las buscamos dentro de la carpeta
+#de GDrive y bajamos los archivos
 def downloadInstallers(*args):
     os.chdir(RootPath)
     window.withdraw()
@@ -195,7 +197,7 @@ def downloadInstallers(*args):
     downloadWindow.after(100, check_function)
     return
 
-
+#Funcion de Google para autenticarse
 def Auth_user(RootPath):
     SCOPES = ['https://www.googleapis.com/auth/drive']
     credspath = RootPath+'\\credentials.json'
@@ -215,7 +217,7 @@ def Auth_user(RootPath):
             token.write(creds.to_json())
     return creds
 
-
+#Funcion de Google para buscar los archivos dentro de un folder de GDrive
 def Finder(*args):
 
     # Definimos el ID de la carpeta que queremos obtener los IDs de los archivos
@@ -247,7 +249,7 @@ def Finder(*args):
 
     return Installers,Tools
 
-# Crea una funcion para obtener la lista de aplicaciones instaladas en la compu
+#Funcion para obtener la lista de aplicaciones instaladas en la compu
 def GetInstalledApps():
     ListOfInstalledApps=[]
     for app in winapps.list_installed():
@@ -255,7 +257,7 @@ def GetInstalledApps():
     return(ListOfInstalledApps)
 
 
-# Crea una funcion para comparar la lista de aplicaciones instaladas en la compu con el .txt que contiene las apps de soporte
+#Funcion para comparar la lista de aplicaciones instaladas en la compu con la carpeta de GDrive que contiene las apps de soporte
 #y obtener la lista con apps faltantes por instalar
 def CompareApps(ListOfInstalledApps):
     aux = 0
@@ -270,7 +272,7 @@ def CompareApps(ListOfInstalledApps):
             aux = 0
     return MissingApps
 
-
+#Funcion para instalar colocar Check las aplicaciones que no fueron detectadas
 def scanApps():
 # Coloca check en las aplicaciones que faltan por instalar
     MissingApps = CompareApps(GetInstalledApps())
@@ -280,7 +282,7 @@ def scanApps():
                 softwareApps_check[i].select()
     return
 
-
+#Funcion para establer si se desea o no guardar los archivos de instalacion
 def saveFolder():
     toolsDirectory = filedialog.askdirectory()
     print(toolsDirectory)
@@ -321,7 +323,7 @@ informationv2_label.grid(row=0 , column=0, padx=10, pady=10)
 software_label_frame = tkinter.LabelFrame(secondStep_frame, text="Software y Apps")
 software_label_frame.grid(row=1 ,column=0, padx=10, pady=10)
 
-AllApps = Finder(RootPath)
+AllApps = Finder(RootPath)#Traer todas las apps de la carpeta de GDrive
 programas= []
 for app in AllApps[0]:
     app_name = app[1].split('.')[0]
@@ -340,7 +342,7 @@ for i, programa in enumerate(programas):
 genesys_label_frame = tkinter.LabelFrame(secondStep_frame, text="Genesys Tools")
 genesys_label_frame.grid(row=1 ,column=1, padx=10, pady=10)
 
-
+#Crear los checkbox con las tools dentro de la carpeta de tools
 tools = []
 for app in AllApps[1]:
     app_name = app[1].split('.')[0]
