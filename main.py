@@ -18,8 +18,10 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
 
 #=============================CONFIGURACION INICIAL=============================#
+messagebox.showinfo("Alerta","Vamos a necesitar que accedas a tu cuenta de interaxa")
 
-with open('config.json') as f:
+
+with open('data/config.json') as f:
     config = json.load(f)
 
 #Obtener directorio actual
@@ -200,7 +202,7 @@ def downloadInstallers(*args):
 #Funcion de Google para autenticarse
 def Auth_user(RootPath):
     SCOPES = ['https://www.googleapis.com/auth/drive']
-    credspath = RootPath+'\\credentials.json'
+    credspath = RootPath+'\\data\\credentials.json'
     tokenpath = RootPath+'\\token.json'
     creds = None
     if os.path.exists(tokenpath):
