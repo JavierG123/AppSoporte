@@ -18,8 +18,6 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
 
 #=============================CONFIGURACION INICIAL=============================#
-messagebox.showinfo("Alerta","Vamos a necesitar que accedas a tu cuenta de interaxa")
-
 
 with open('data/config.json') as f:
     config = json.load(f)
@@ -30,6 +28,29 @@ RootPath = os.getcwd()
 InstallDir = 'Instaladores'
 
 #======================Funciones===============================#
+
+#Funcion de Google para autenticarse
+def Auth_user(RootPath):
+    
+    SCOPES = ['https://www.googleapis.com/auth/drive']
+    credspath = RootPath+'\\data\\credentials.json'
+    tokenpath = RootPath+'\\token.json'
+    creds = None
+    if os.path.exists(tokenpath):
+        creds = Credentials.from_authorized_user_file(tokenpath, SCOPES)
+    # If there are no (valid) credentials available, let the user log in.
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            messagebox.showinfo("Alerta","Vamos a necesitar que accedas a tu cuenta de interaxa")
+            flow = InstalledAppFlow.from_client_secrets_file(credspath, SCOPES)
+            creds = flow.run_local_server(port=0)
+        # Save the credentials for the next run
+        with open(tokenpath, 'w') as token:
+            token.write(creds.to_json())
+    return creds
+
 
 #Funcion para salir del programa
 def exit ():
@@ -199,26 +220,6 @@ def downloadInstallers(*args):
     downloadWindow.after(100, check_function)
     return
 
-#Funcion de Google para autenticarse
-def Auth_user(RootPath):
-    SCOPES = ['https://www.googleapis.com/auth/drive']
-    credspath = RootPath+'\\data\\credentials.json'
-    tokenpath = RootPath+'\\token.json'
-    creds = None
-    if os.path.exists(tokenpath):
-        creds = Credentials.from_authorized_user_file(tokenpath, SCOPES)
-    # If there are no (valid) credentials available, let the user log in.
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(credspath, SCOPES)
-            creds = flow.run_local_server(port=0)
-        # Save the credentials for the next run
-        with open(tokenpath, 'w') as token:
-            token.write(creds.to_json())
-    return creds
-
 #Funcion de Google para buscar los archivos dentro de un folder de GDrive
 def Finder(*args):
 
@@ -335,11 +336,12 @@ softwareApps_check = []
 
 # Crea los checkboxes para cada programa
 check=[tkinter.IntVar() for _ in programas]
-for i, programa in enumerate(programas):
+for i, programa in enumerate(programas): 
     programa = programa.strip()
     checkbox = tkinter.Checkbutton(software_label_frame, text=programa, variable=check[i])
-    checkbox.grid(row=i, column=0, padx=2, pady=2)
+    checkbox.grid(row=i // 3, column=i % 3, padx=2, pady=2, sticky="w")
     softwareApps_check.append(checkbox)   
+      
 
 genesys_label_frame = tkinter.LabelFrame(secondStep_frame, text="Genesys Tools")
 genesys_label_frame.grid(row=1 ,column=1, padx=10, pady=10)
@@ -355,7 +357,7 @@ genesysTool_check = []
 check_tool=[tkinter.IntVar() for _ in tools]
 for i, tool in enumerate(tools):
     toolCheckbox=tkinter.Checkbutton(genesys_label_frame, text=tool, variable=check_tool[i])
-    toolCheckbox.grid(row=i, column=0, padx=5, pady=5)
+    toolCheckbox.grid(row=i, column=0, padx=5, pady=5, sticky="w")
     genesysTool_check.append(toolCheckbox)
 
 downloadButton = tkinter.Button(secondStep_frame, text="Descargar", command=downloadInstallers)
@@ -377,6 +379,5 @@ saveAsk_check.grid(row=0 , column=0, padx=10, pady=10)
 
 exitButton = tkinter.Button(thirdStep_frame, text="Salir", command=exit)
 exitButton.grid(row= 1, column=0, padx=10, pady=10)
-
 
 window.mainloop()
