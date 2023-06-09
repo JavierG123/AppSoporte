@@ -71,6 +71,7 @@ def installPrograms():
     window.withdraw()
     windowInstall = tkinter.Toplevel()
     windowInstall.geometry("250x100")
+    windowInstall.resizable(width=False, height=False)
     logo = tkinter.PhotoImage(file=config["icon"])
     windowInstall.iconphoto(False, logo)
     windowInstall.title("Instalando")
@@ -143,6 +144,7 @@ def downloadInstallers(*args):
     window.withdraw()
     downloadWindow = tkinter.Toplevel()
     downloadWindow.geometry("220x130")
+    downloadWindow.resizable(width=False, height=False)
     logo = tkinter.PhotoImage(file=config["icon"])
     downloadWindow.iconphoto(False, logo)
     downloadWindow.title("Cargando")
@@ -333,10 +335,10 @@ for app in AllApps[0]:
     programas.append(app_name)
 # Crea una lista para guardar los checkboxes
 softwareApps_check = []
-
+programas_sorted = sorted(programas, key=str.lower)
 # Crea los checkboxes para cada programa
 check=[tkinter.IntVar() for _ in programas]
-for i, programa in enumerate(programas): 
+for i, programa in enumerate(programas_sorted): 
     programa = programa.strip()
     checkbox = tkinter.Checkbutton(software_label_frame, text=programa, variable=check[i])
     checkbox.grid(row=i // 3, column=i % 3, padx=2, pady=2, sticky="w")
