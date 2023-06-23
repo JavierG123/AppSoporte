@@ -27,7 +27,7 @@ with open('data/config.json') as f:
 RootPath = os.getcwd()
 #Directorio para guardar los instaladores
 InstallDir = 'Instaladores'
-toolsDir = 'Genesys Tools'
+toolsDir = 'Herramientas'
 
 #======================Funciones===============================#
 
@@ -237,19 +237,27 @@ def downloadFiles(checkedButton,*args):
                     installPrograms()
                 window.withdraw()
                 askInstall = tkinter.Toplevel()
-                askInstall.geometry("220x130")
                 askInstall.resizable(width=False, height=False)
-                logo = tkinter.PhotoImage(file=RootPath+'\\'+config["icon"])
+                logo = tkinter.PhotoImage(file=RootPath + '\\' + config["icon"])
                 askInstall.iconphoto(False, logo)
                 askInstall.title("Pregunta")
-                textMessage = tkinter.Label(askInstall, text="Desea ejecutar los instaladores?")
-                textMessage.grid(row=0, column=0, pady=5, padx=5)
-                yesButton = tkinter.Button(askInstall, text="Si", command=runInstall)
-                yesButton.grid(row=1, column=0, pady=5, padx=5)
-                noButton = tkinter.Button(askInstall, text="No", command=backtoWindow)
-                noButton.grid(row=1, column=1,pady=5, padx=5)
+                if checkedButton == "apps":
+                    textMessage = tkinter.Label(askInstall, text="Desea ejecutar los instaladores?")
+                    textMessage.grid(row=0, column=0, pady=20, padx=30, columnspan=2, sticky="news")
+
+                    yesButton = tkinter.Button(askInstall, text="Si", command=runInstall)
+                    yesButton.grid(row=1, column=0, pady=20, padx=30, sticky="news")
+
+                    noButton = tkinter.Button(askInstall, text="No", command=backtoWindow)
+                    noButton.grid(row=1, column=1, pady=20, padx=30, sticky="news")              
+                else:
+                    textMessage = tkinter.Label(askInstall, text="Las herramientas ya fueron instalados!")
+                    textMessage.grid(row=0, column=0, pady=20, padx=30, columnspan=2, sticky="news")
+
+                    yesButton = tkinter.Button(askInstall, text="No", command=backtoWindow)
+                    yesButton.grid(row=1, column=0, pady=20, padx=30, sticky="news")
+                    
         return    
-    
 
     def cancelar_descarga():
         nonlocal keepRunning
@@ -327,13 +335,17 @@ def scanApps():
 # Coloca check en las aplicaciones que faltan por instalar
     MissingApps = CompareApps(GetInstalledApps())
     for i in range(len(softwareApps_check)):
-        for j in range(len(MissingApps)):   
+        for j in range(len(MissingApps)): 
             if softwareApps_check[i].cget("text") in MissingApps[j]:
                 softwareApps_check[i].select()
                 softwareApps_check[i].config(fg='red')
             else:
                 softwareApps_check[i].config(fg='#48e120')
                 softwareApps_check[i].deselect()
+    if len(MissingApps) == 0:
+        for i in range(len(softwareApps_check)):
+            softwareApps_check[i].config(fg='#48e120')
+            softwareApps_check[i].deselect()       
     return
 
 #Funcion para establer si se desea o no guardar los archivos de instalacion
@@ -375,7 +387,7 @@ informationv1_label.grid(row=0 , column=0, padx=10, pady=10)
 informationv2_label = tkinter.Label(firstStep_frame, text="En color verde las instaladas y en color rojo las que no estan instaladas en tu PC")
 informationv2_label.grid(row=1 , column=0, padx=10, pady=10)
 
-scanButton =  tkinter.Button(firstStep_frame, text="Escanear", command=scanApps)
+scanButton =  tkinter.Button(firstStep_frame, text="Escanear", command=lambda : scanApps())
 scanButton.grid(row= 2, column=0, padx=10, pady=10)
 
 #Second frame for apps list and download
