@@ -20,7 +20,7 @@ from googleapiclient.http import MediaIoBaseDownload
 import sys
 
 #=============================CONFIGURACION INICIAL=============================#
-""" DESCOMENTAR PARA PYINSTALLER
+
 def resource_path(relative_path):
     try:
         # PyInstaller creates a temp folder and stores path in _MEIPASS
@@ -29,9 +29,9 @@ def resource_path(relative_path):
         base_path = os.path.abspath(".")
 
     return os.path.join(base_path, relative_path)
-"""
-# DESCOMENTAR PARA PYINSTALLER with open(resource_path('data/config.json')) as f:
-with open('data/config.json') as f:
+
+with open(resource_path('data/config.json')) as f:
+#with open('data/config.json') as f:
     config = json.load(f)
 
 #Obtener directorio actual
@@ -47,10 +47,10 @@ def Auth_user(RootPath):
     
     SCOPES = ['https://www.googleapis.com/auth/drive']
 
-    credspath = RootPath+'\\data\\credentials.json'
-    tokenpath = RootPath+'\\token.json'
-    #DESCOMENTAR PARA PYINSTALLER credspath = resource_path('data/credentials.json') 
-    #DESCOMENTAR PARA PYINSTALLERtokenpath = resource_path('token.json')
+    #credspath = RootPath+'\\data\\credentials.json'
+    #tokenpath = RootPath+'\\token.json'
+    credspath = resource_path('data/credentials.json') 
+    tokenpath = resource_path('token.json')
     creds = None
     if os.path.exists(tokenpath):
         creds = Credentials.from_authorized_user_file(tokenpath, SCOPES)
@@ -88,8 +88,8 @@ def installPrograms():
     windowInstall = tkinter.Toplevel()
     windowInstall.geometry("250x100")
     windowInstall.resizable(width=False, height=False)
-    logo = tkinter.PhotoImage(file=config["icon"])
-    #DESCOMENTAR PARA PYINSTALLER logo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
+    #logo = tkinter.PhotoImage(file=config["icon"])
+    logo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
     windowInstall.iconphoto(False, logo)
     windowInstall.title("Instalando")
     message = tkinter.Label(windowInstall, text="Instalando los programas...")
@@ -133,7 +133,7 @@ def downloadFromGDrive(RootPath, real_file_id,toolsDirectory):
 
     try:
         creds = Auth_user(RootPath)
-        service = build('drive', 'v3', credentials=creds)
+        service = build('drive', 'v3', credentials=creds, static_discovery=False)
         file_id = real_file_id
         request = service.files().get_media(fileId=file_id)
         file = service.files().get(fileId=file_id).execute()
@@ -166,8 +166,8 @@ def downloadFiles(checkedButton,*args):
     downloadWindow = tkinter.Toplevel()
     downloadWindow.geometry("220x130")
     downloadWindow.resizable(width=False, height=False)
-    logo = tkinter.PhotoImage(file=config["icon"])
-    #DESCOMENTAR PARA PYINSTALLER logo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
+    #logo = tkinter.PhotoImage(file=config["icon"])
+    logo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
     downloadWindow.iconphoto(False, logo)
     downloadWindow.title("Cargando")
     textMessage = tkinter.Label(downloadWindow, text="Descargando...")
@@ -254,8 +254,8 @@ def downloadFiles(checkedButton,*args):
                 window.withdraw()
                 askInstall = tkinter.Toplevel()
                 askInstall.resizable(width=False, height=False)
-                logo = tkinter.PhotoImage(file=RootPath + '\\' + config["icon"])
-                #DESCOMENTAR PARA PYINSTALLER logo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
+                #logo = tkinter.PhotoImage(file=RootPath + '\\' + config["icon"])
+                logo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
                 askInstall.iconphoto(False, logo)
                 askInstall.title("Pregunta")
 
@@ -305,7 +305,7 @@ def Finder(*args):
     """service_account.Credentials.from_service_account_file('ruta a tu archivo JSON de credenciales')"""
 
     # Creamos un objeto de la API de Google Drive
-    drive_service = build('drive', 'v3', credentials=creds)
+    drive_service = build('drive', 'v3', credentials=creds, static_discovery=False)
 
     # Hacemos una consulta para obtener los IDs y nombres de los archivos dentro de la carpeta especificada
     query = f"'{programsFolder_id}' in parents and trashed = false"
@@ -383,8 +383,8 @@ def openFolder(directory):
 #=====================Interfaz Grafica=========================#
 #main window
 window = tkinter.Tk()
-logo = tkinter.PhotoImage(file=config["icon"])
-#DESCOMENTAR PARA PYINSTALLER logo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
+#logo = tkinter.PhotoImage(file=config["icon"])
+logo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
 window.iconphoto(False, logo)
 window.title("Instalador de aplicaciones")
 window.resizable(width=False, height=False)
