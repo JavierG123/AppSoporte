@@ -241,6 +241,7 @@ def downloadFiles(checkedButton,*args):
                 logo = tkinter.PhotoImage(file=RootPath + '\\' + config["icon"])
                 askInstall.iconphoto(False, logo)
                 askInstall.title("Pregunta")
+
                 if checkedButton == "apps":
                     textMessage = tkinter.Label(askInstall, text="Desea ejecutar los instaladores?")
                     textMessage.grid(row=0, column=0, pady=20, padx=30, columnspan=2, sticky="news")
@@ -249,13 +250,13 @@ def downloadFiles(checkedButton,*args):
                     yesButton.grid(row=1, column=0, pady=20, padx=30, sticky="news")
 
                     noButton = tkinter.Button(askInstall, text="No", command=backtoWindow)
-                    noButton.grid(row=1, column=1, pady=20, padx=30, sticky="news")              
+                    noButton.grid(row=1, column=1, pady=20, padx=30, sticky="news")
                 else:
-                    textMessage = tkinter.Label(askInstall, text="Las herramientas ya fueron instalados!")
+                    textMessage = tkinter.Label(askInstall, text="Las herramientas ya fueron instaladas!")
                     textMessage.grid(row=0, column=0, pady=20, padx=30, columnspan=2, sticky="news")
 
-                    yesButton = tkinter.Button(askInstall, text="No", command=backtoWindow)
-                    yesButton.grid(row=1, column=0, pady=20, padx=30, sticky="news")
+                    yesButton = tkinter.Button(askInstall, text="Aceptar", command=backtoWindow)
+                    yesButton.grid(row=1, column=0, columnspan=2, pady=20, padx=30, sticky="n")
                     
         return    
 
