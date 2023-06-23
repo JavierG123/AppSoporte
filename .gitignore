@@ -154,6 +154,7 @@ cython_debug/
 #Others
 credentials.json
 token.json
+token
 Instaladores
 Tools
 test.py
