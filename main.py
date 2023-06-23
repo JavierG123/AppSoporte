@@ -20,6 +20,8 @@ from googleapiclient.http import MediaIoBaseDownload
 import sys
 
 #=============================CONFIGURACION INICIAL=============================#
+"""
+    #DESCOMENTAR PARA PYINSTALLER
 
 def resource_path(relative_path):
     try:
@@ -29,9 +31,9 @@ def resource_path(relative_path):
         base_path = os.path.abspath(".")
 
     return os.path.join(base_path, relative_path)
-
-with open(resource_path('data/config.json')) as f:
-#with open('data/config.json') as f:
+"""
+#DESCOMENTAR PARA PYINSTALLERwith open(resource_path('data/config.json')) as f:
+with open('data/config.json') as f:
     config = json.load(f)
 
 #Obtener directorio actual
@@ -47,10 +49,10 @@ def Auth_user(RootPath):
     
     SCOPES = ['https://www.googleapis.com/auth/drive']
 
-    #credspath = RootPath+'\\data\\credentials.json'
-    #tokenpath = RootPath+'\\token.json'
-    credspath = resource_path('data/credentials.json') 
-    tokenpath = resource_path('token.json')
+    credspath = RootPath+'\\data\\credentials.json'
+    tokenpath = RootPath+'\\token.json'
+    #DESCOMENTAR PARA PYINSTALLERcredspath = resource_path('data/credentials.json') 
+    #DESCOMENTAR PARA PYINSTALLERtokenpath = resource_path('token.json')
     creds = None
     if os.path.exists(tokenpath):
         creds = Credentials.from_authorized_user_file(tokenpath, SCOPES)
@@ -88,8 +90,8 @@ def installPrograms():
     windowInstall = tkinter.Toplevel()
     windowInstall.geometry("250x100")
     windowInstall.resizable(width=False, height=False)
-    #logo = tkinter.PhotoImage(file=config["icon"])
-    logo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
+    logo = tkinter.PhotoImage(file=config["icon"])
+    #DESCOMENTAR PARA PYINSTALLERlogo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
     windowInstall.iconphoto(False, logo)
     windowInstall.title("Instalando")
     message = tkinter.Label(windowInstall, text="Instalando los programas...")
@@ -166,8 +168,8 @@ def downloadFiles(checkedButton,*args):
     downloadWindow = tkinter.Toplevel()
     downloadWindow.geometry("220x130")
     downloadWindow.resizable(width=False, height=False)
-    #logo = tkinter.PhotoImage(file=config["icon"])
-    logo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
+    logo = tkinter.PhotoImage(file=config["icon"])
+    #DESCOMENTAR PARA PYINSTALLERlogo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
     downloadWindow.iconphoto(False, logo)
     downloadWindow.title("Cargando")
     textMessage = tkinter.Label(downloadWindow, text="Descargando...")
@@ -254,8 +256,8 @@ def downloadFiles(checkedButton,*args):
                 window.withdraw()
                 askInstall = tkinter.Toplevel()
                 askInstall.resizable(width=False, height=False)
-                #logo = tkinter.PhotoImage(file=RootPath + '\\' + config["icon"])
-                logo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
+                logo = tkinter.PhotoImage(file=RootPath + '\\' + config["icon"])
+                #DESCOMENTAR PARA PYINSTALLERlogo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
                 askInstall.iconphoto(False, logo)
                 askInstall.title("Pregunta")
 
@@ -383,8 +385,8 @@ def openFolder(directory):
 #=====================Interfaz Grafica=========================#
 #main window
 window = tkinter.Tk()
-#logo = tkinter.PhotoImage(file=config["icon"])
-logo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
+logo = tkinter.PhotoImage(file=config["icon"])
+#DESCOMENTAR PARA PYINSTALLERlogo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
 window.iconphoto(False, logo)
 window.title("Instalador de aplicaciones")
 window.resizable(width=False, height=False)
@@ -427,12 +429,6 @@ installersPath_label.grid(row=0, column=0, sticky='w', padx=5, pady=5)
 
 toolsPath_label = tkinter.Label(configLabel_frame, text="Directorio de Herramientas: "+RootPath+'\\'+toolsDir)
 toolsPath_label.grid(row=1, column=0, sticky='w', padx=5, pady=5)
-
-#changeInstallersPath_button = tkinter.Button(configLabel_frame, text="Cambiar Path de Instaladores")
-#changeInstallersPath_button.grid(row=2, column=0, sticky='w', padx=5, pady=5)
-
-#changeToolsPath_button = tkinter.Button(configLabel_frame, text="Cambiar Path de Tools")
-#changeToolsPath_button.grid(row=2, column=0, sticky='e', padx=5, pady=5)
 
 software_label_frame = tkinter.LabelFrame(secondStep_frame, text="Software y Apps")
 software_label_frame.grid(row=2, padx=10, pady=10)
@@ -488,8 +484,6 @@ thirdStep_frame.columnconfigure(0, weight=1)
 thirdStep_frame.rowconfigure(0, weight=1)
 
 checkSave=tkinter.IntVar()
-#saveAsk_check = tkinter.Checkbutton(thirdStep_frame, text="Deseas borrar los instaladores?", variable=checkSave)
-#saveAsk_check.grid(row=0 , column=0, padx=10, pady=10)
 openInstallersFolder_Button =  tkinter.Button(thirdStep_frame, text="Abrir carpeta de instaladores", command=lambda: openFolder("app"))
 openInstallersFolder_Button.grid(row=0, column=0, padx=5, pady=5,sticky="e")
 
