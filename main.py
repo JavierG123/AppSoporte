@@ -344,10 +344,10 @@ def saveFolder():
 
 def openFolder(directory):
     if directory == "app":
-        dir = RootPath+'\\'+toolsDir
+        dir = RootPath+'\\'+InstallDir
         subprocess.Popen(f'explorer "{dir}"')
     else:
-        dir = RootPath+'\\'+InstallDir
+        dir = RootPath+'\\'+toolsDir
         subprocess.Popen(f'explorer "{dir}"')
 
 #=====================Interfaz Grafica=========================#
