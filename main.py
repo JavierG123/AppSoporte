@@ -1,25 +1,28 @@
 from __future__ import print_function
+
+import logging
+import os
+import shutil
+import subprocess
+import sys
 import threading
 import tkinter
-import subprocess
-from tkinter import ttk
-from tkinter import messagebox
-from tkinter import filedialog
-import shutil
-import winapps
-import json
-import os
-import io
-import zipfile
-from googleapiclient.discovery import build
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
-from googleapiclient.errors import HttpError
-from googleapiclient.http import MediaIoBaseDownload
-import sys
+from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
+from typing import Any, List, Tuple
 
-#=============================CONFIGURACION INICIAL=============================#
+from app_context import AppContext
+from config_loader import load_config
+from services.drive_service import authenticate_user, download_from_gdrive, find_files
+from services.system_service import compare_apps, get_installed_apps
+
+LOGGER = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s",
+)
+
+# =============================CONFIGURACION INICIAL=============================#
 """
     #DESCOMENTAR PARA PYINSTALLER
 
@@ -32,232 +35,213 @@ def resource_path(relative_path):
 
     return os.path.join(base_path, relative_path)
 """
-#DESCOMENTAR PARA PYINSTALLERwith open(resource_path('data/config.json')) as f:
-with open('data/config.json') as f:
-    config = json.load(f)
+# DESCOMENTAR PARA PYINSTALLERwith open(resource_path('data/config.json')) as f:
+config = load_config(Path("data/config.json"))
 
-#Obtener directorio actual
-RootPath = os.getcwd()
-#Directorio para guardar los instaladores
-InstallDir = 'Instaladores'
-toolsDir = 'Herramientas'
-
-#======================Funciones===============================#
-
-#Funcion de Google para autenticarse
-def Auth_user(RootPath):
-    
-    SCOPES = ['https://www.googleapis.com/auth/drive']
-
-    credspath = RootPath+'\\data\\credentials.json'
-    tokenpath = RootPath+'\\token.json'
-    #DESCOMENTAR PARA PYINSTALLERcredspath = resource_path('data/credentials.json') 
-    #DESCOMENTAR PARA PYINSTALLERtokenpath = resource_path('token.json')
-    creds = None
-    if os.path.exists(tokenpath):
-        creds = Credentials.from_authorized_user_file(tokenpath, SCOPES)
-    # If there are no (valid) credentials available, let the user log in.
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            messagebox.showinfo("Alerta","Vamos a necesitar que accedas a tu cuenta de interaxa")
-            flow = InstalledAppFlow.from_client_secrets_file(credspath, SCOPES)
-            creds = flow.run_local_server(port=0)
-        # Save the credentials for the next run
-        with open(tokenpath, 'w') as token:
-            token.write(creds.to_json())
-    return creds
+APP = AppContext(root_path=Path(os.getcwd()))
 
 
-#Funcion para salir del programa
-def exit ():
-    try :
-        os.chdir(RootPath)#Vamos al directorio principal
+# ======================Funciones===============================#
+def root_path() -> Path:
+    """Return project root path as pathlib object."""
+    return APP.root_path
+
+
+def installers_path() -> Path:
+    """Return installers folder path."""
+    return APP.installers_path
+
+
+def tools_path() -> Path:
+    """Return tools folder path."""
+    return APP.tools_path
+
+
+def _show_auth_message() -> None:
+    messagebox.showinfo("Alerta", "Vamos a necesitar que accedas a tu cuenta de interaxa")
+
+
+def Auth_user(root_path_value: str):
+    """Authenticate user against Google Drive API and return credentials."""
+    return authenticate_user(Path(root_path_value), _show_auth_message)
+
+
+def exit() -> None:
+    """Exit the application and optionally remove installers folder."""
+    try:
+        os.chdir(str(root_path()))
         if checkSave.get() == 1:
-            shutil.rmtree(os.getcwd()+'\\'+InstallDir)#Elimina la carpeta con instaladores
-            window.destroy()
-        else:
-            window.destroy()
-    except : 
+            shutil.rmtree(installers_path())
         window.destroy()
-    return   
+    except FileNotFoundError:
+        LOGGER.warning("No se encontró la carpeta de instaladores para eliminar.")
+        window.destroy()
+    except OSError:
+        LOGGER.exception("Error al salir de la aplicación.")
+        window.destroy()
 
-#Funcion para instalar los programas clickeados
-def installPrograms():
-    os.chdir(RootPath)
+
+def installPrograms() -> None:
+    """Install downloaded executables and MSI packages."""
+    os.chdir(str(root_path()))
     window.withdraw()
     windowInstall = tkinter.Toplevel()
     windowInstall.geometry("250x100")
     windowInstall.resizable(width=False, height=False)
     logo = tkinter.PhotoImage(file=config["icon"])
-    #DESCOMENTAR PARA PYINSTALLERlogo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
+    # DESCOMENTAR PARA PYINSTALLERlogo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
     windowInstall.iconphoto(False, logo)
     windowInstall.title("Instalando")
     message = tkinter.Label(windowInstall, text="Instalando los programas...")
     message.pack(pady=10)
-    progressBar = ttk.Progressbar(windowInstall, mode='indeterminate')
+    progressBar = ttk.Progressbar(windowInstall, mode="indeterminate")
     progressBar.pack(pady=10)
     progressBar.start(3)
-    programs = []
-    def check_function():
+    programs: List[str] = []
+
+    def check_function() -> None:
         if thread2.is_alive():
             windowInstall.after(100, check_function)
         else:
             windowInstall.destroy()
             window.deiconify()
-        return    
-    def Install():
+
+    def Install() -> None:
         try:
-            for file in os.listdir(os.getcwd()+'\\'+InstallDir):
+            install_path = installers_path()
+            for file in os.listdir(install_path):
                 if file.endswith(".exe") or file.endswith(".msi"):
-                    programs.append(os.path.join(os.getcwd()+'\\'+InstallDir, file))
+                    programs.append(str(install_path / file))
             if len(programs) == 0:
-                messagebox.showinfo("Alerta","No hay apps para Instalar")
+                messagebox.showinfo("Alerta", "No hay apps para Instalar")
                 windowInstall.destroy()
                 window.deiconify()
             for file in programs:
-                subprocess.run(file, shell=True)  
-        except:
-                messagebox.showinfo("Alerta","No hay apps para Instalar")
-                windowInstall.destroy()
-                window.deiconify()
+                subprocess.run(file, shell=True, check=False)
+        except FileNotFoundError:
+            messagebox.showinfo("Alerta", "No hay apps para Instalar")
+            windowInstall.destroy()
+            window.deiconify()
+        except OSError:
+            LOGGER.exception("Error durante la instalación de programas")
+            messagebox.showinfo("Alerta", "No hay apps para Instalar")
+            windowInstall.destroy()
+            window.deiconify()
 
     thread2 = threading.Thread(target=Install)
     thread2.start()
     windowInstall.after(100, check_function)
     scanApps()
 
-#Funcion para descargar archivos desde GoogleDrive
-def downloadFromGDrive(RootPath, real_file_id,toolsDirectory):
-    SCOPES = ['https://www.googleapis.com/auth/drive']
-    InstallDir = 'Instaladores'
 
-    try:
-        creds = Auth_user(RootPath)
-        service = build('drive', 'v3', credentials=creds, static_discovery=False)
-        file_id = real_file_id
-        request = service.files().get_media(fileId=file_id)
-        file = service.files().get(fileId=file_id).execute()
-        file_name = file.get("name")
-        file = io.BytesIO()
-        downloader = MediaIoBaseDownload(file, request)
-        done = False
-        while done is False:
-            status, done = downloader.next_chunk()
-            print(F'Download {int(status.progress() * 100)}.')
-        file.seek(0)      
-        with open(os.path.join("./", file_name), "wb") as f:
-            f.write(file.read())
-            f.close()    
-        if ".zip" in file_name:
-            ruta_zip = os.getcwd()+"\\"+file_name
-            with zipfile.ZipFile(ruta_zip, 'r') as zipFile:
-                zipFile.extractall(toolsDirectory)
-    except HttpError as error:
-        print(F'An error occurred: {error}')
-        file = None
+def downloadFromGDrive(root_path_value: str, real_file_id: str, tools_directory: str) -> bytes:
+    """Download a file from Google Drive and extract zip files in tools directory."""
+    tools_dir = Path(tools_directory) if tools_directory else None
+    return download_from_gdrive(Path(root_path_value), real_file_id, _show_auth_message, tools_dir)
 
-    return file.getvalue()
 
-#Utilizando la funcion downloadFromGDrive, leemos las apps/tools con check, las buscamos dentro de la carpeta
-#de GDrive y bajamos los archivos
-def downloadFiles(checkedButton,*args):
-    os.chdir(RootPath)
+# Utilizando la funcion downloadFromGDrive, leemos las apps/tools con check, las buscamos dentro de la carpeta
+# de GDrive y bajamos los archivos
+def downloadFiles(checkedButton: str, *args: Any) -> None:
+    """Download selected applications or tools and prompt for installation."""
+    os.chdir(str(root_path()))
     window.withdraw()
     downloadWindow = tkinter.Toplevel()
     downloadWindow.geometry("220x130")
     downloadWindow.resizable(width=False, height=False)
     logo = tkinter.PhotoImage(file=config["icon"])
-    #DESCOMENTAR PARA PYINSTALLERlogo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
+    # DESCOMENTAR PARA PYINSTALLERlogo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
     downloadWindow.iconphoto(False, logo)
     downloadWindow.title("Cargando")
     textMessage = tkinter.Label(downloadWindow, text="Descargando...")
     textMessage.pack(pady=10)
-    loadBar = ttk.Progressbar(downloadWindow, mode='indeterminate')
+    loadBar = ttk.Progressbar(downloadWindow, mode="indeterminate")
     loadBar.pack(pady=10)
     loadBar.start(3)
     keepRunning = True
-    # Crea una función para instalar los programas seleccionados
-    def downloadInstallers(*args):
-        os.chdir(RootPath)
-        if not os.path.exists(InstallDir):
-            os.mkdir(InstallDir)
-        os.chdir(InstallDir)
-        AllApps = Finder(RootPath) #como argumento viaja el directorio donde estan las credencuales
-        NeededApps = []
-        DownloadAppsId = []
-        for i, programa in enumerate(programas):
+
+    def downloadInstallers(*args: Any) -> None:
+        os.chdir(str(root_path()))
+        if not installers_path().exists():
+            installers_path().mkdir()
+        os.chdir(str(installers_path()))
+        all_apps = Finder(str(root_path()))
+        needed_apps: List[str] = []
+        download_apps_id: List[str] = []
+        for i, _programa in enumerate(programas):
             if check[i].get() == 1:
-                NeededApps.append(softwareApps_check[i].cget("text"))
-        if len(NeededApps) == 0:
-            messagebox.showinfo("Alerta","No hay apps seleccionadas para Descargar")
-            os.chdir(RootPath)
+                needed_apps.append(softwareApps_check[i].cget("text"))
+        if len(needed_apps) == 0:
+            messagebox.showinfo("Alerta", "No hay apps seleccionadas para Descargar")
+            os.chdir(str(root_path()))
             downloadWindow.destroy()
             window.deiconify()
-        for app in NeededApps:
-            for tup in AllApps[0]:
+        for app in needed_apps:
+            for tup in all_apps[0]:
                 if app.lower() in str(tup[1]).lower():
-                    DownloadAppsId.append(tup[0])                          
-        for i, id in enumerate(DownloadAppsId):
-                if keepRunning:
-                    downloadFromGDrive(RootPath, id, "")
-                else:
-                    os.chdir(RootPath)#Vamos al directorio principal
-                    shutil.rmtree(os.getcwd()+'\\'+InstallDir)#Elimina la carpeta con instaladores
-    
-    def downloadTools():
-        os.chdir(RootPath)
-        if not os.path.exists(toolsDir):
-            os.mkdir(toolsDir)
-        os.chdir(toolsDir)
-        AllApps = Finder(RootPath)
-        NeededTools = []
-        DownloadToolsId = []
-        for i, tool in enumerate(tools):
-            if check_tool[i].get() == 1:
-                NeededTools.append(genesysTool_check[i].cget("text"))
-        if len(NeededTools) == 0:
-            messagebox.showinfo("Alerta","No hay herramientas seleccionadas para Descargar")
-            os.chdir(RootPath)
-            downloadWindow.destroy()
-            window.deiconify()       
-        for tool in NeededTools:
-            for tupTool in AllApps[1]:
-                if tool.lower() in str(tupTool[1]).lower():
-                    DownloadToolsId.append(tupTool[0])      
-        if DownloadToolsId != "":
-            for i, id in enumerate(DownloadToolsId):
-                if keepRunning:
-                    toolsDirectory = RootPath+'\\'+toolsDir
-                    os.chdir(toolsDirectory)
-                    downloadFromGDrive(RootPath, id, toolsDirectory)
-                    for file in os.listdir(toolsDirectory):
-                        if file.endswith(".zip"):
-                            filePath = os.path.join(toolsDirectory, file)
-                            os.remove(filePath)
-                else:
-                    os.chdir(RootPath)#Vamos al directorio principal
-                    shutil.rmtree(os.getcwd()+'\\'+InstallDir)#Elimina la carpeta con instaladores
-                    shutil.rmtree(toolsDirectory)
+                    download_apps_id.append(tup[0])
+        for file_id in download_apps_id:
+            if keepRunning:
+                downloadFromGDrive(str(root_path()), file_id, "")
+            else:
+                os.chdir(str(root_path()))
+                shutil.rmtree(installers_path())
 
-    def check_function():
+    def downloadTools() -> None:
+        os.chdir(str(root_path()))
+        if not tools_path().exists():
+            tools_path().mkdir()
+        os.chdir(str(tools_path()))
+        all_apps = Finder(str(root_path()))
+        needed_tools: List[str] = []
+        download_tools_id: List[str] = []
+        for i, _tool in enumerate(tools):
+            if check_tool[i].get() == 1:
+                needed_tools.append(genesysTool_check[i].cget("text"))
+        if len(needed_tools) == 0:
+            messagebox.showinfo("Alerta", "No hay herramientas seleccionadas para Descargar")
+            os.chdir(str(root_path()))
+            downloadWindow.destroy()
+            window.deiconify()
+        for tool in needed_tools:
+            for tupTool in all_apps[1]:
+                if tool.lower() in str(tupTool[1]).lower():
+                    download_tools_id.append(tupTool[0])
+        if download_tools_id != "":
+            for file_id in download_tools_id:
+                if keepRunning:
+                    tools_directory = str(tools_path())
+                    os.chdir(tools_directory)
+                    downloadFromGDrive(str(root_path()), file_id, tools_directory)
+                    for file in os.listdir(tools_directory):
+                        if file.endswith(".zip"):
+                            file_path = Path(tools_directory) / file
+                            os.remove(file_path)
+                else:
+                    os.chdir(str(root_path()))
+                    shutil.rmtree(installers_path())
+                    shutil.rmtree(tools_directory)
+
+    def check_function() -> None:
         if thread.is_alive():
             downloadWindow.after(100, check_function)
         else:
             downloadWindow.destroy()
             if len(os.listdir(os.getcwd())) != "":
-                def backtoWindow():
+
+                def backtoWindow() -> None:
                     askInstall.destroy()
-                    window.deiconify() 
-                def runInstall():
+                    window.deiconify()
+
+                def runInstall() -> None:
                     askInstall.destroy()
                     installPrograms()
+
                 window.withdraw()
                 askInstall = tkinter.Toplevel()
                 askInstall.resizable(width=False, height=False)
-                logo = tkinter.PhotoImage(file=RootPath + '\\' + config["icon"])
-                #DESCOMENTAR PARA PYINSTALLERlogo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
+                logo = tkinter.PhotoImage(file=str(root_path() / config["icon"]))
+                # DESCOMENTAR PARA PYINSTALLERlogo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
                 askInstall.iconphoto(False, logo)
                 askInstall.title("Pregunta")
 
@@ -276,15 +260,13 @@ def downloadFiles(checkedButton,*args):
 
                     yesButton = tkinter.Button(askInstall, text="Aceptar", command=backtoWindow)
                     yesButton.grid(row=1, column=0, columnspan=2, pady=20, padx=30, sticky="n")
-                    
-        return    
 
-    def cancelar_descarga():
+    def cancelar_descarga() -> None:
         nonlocal keepRunning
         keepRunning = False
         downloadWindow.destroy()
         window.deiconify()
-        return  
+
     cancelButton = tkinter.Button(downloadWindow, text="Cancelar", command=cancelar_descarga)
     cancelButton.pack(pady=10)
     if checkedButton == "apps":
@@ -293,204 +275,177 @@ def downloadFiles(checkedButton,*args):
         thread = threading.Thread(target=downloadTools)
     thread.start()
     downloadWindow.after(100, check_function)
-    return
-
-#Funcion de Google para buscar los archivos dentro de un folder de GDrive
-def Finder(*args):
-
-    # Definimos el ID de la carpeta que queremos obtener los IDs de los archivos
-    programsFolder_id = config["programsFolder"]
-    genesysToolsFolder_id = config["genesysToolsFolder"]
-
-    # Autenticación con la API de Google Drive usando una cuenta de servicio de Google
-    creds = Auth_user(*args)
-    """service_account.Credentials.from_service_account_file('ruta a tu archivo JSON de credenciales')"""
-
-    # Creamos un objeto de la API de Google Drive
-    drive_service = build('drive', 'v3', credentials=creds, static_discovery=False)
-
-    # Hacemos una consulta para obtener los IDs y nombres de los archivos dentro de la carpeta especificada
-    query = f"'{programsFolder_id}' in parents and trashed = false"
-    results = drive_service.files().list(q=query, fields="nextPageToken, files(id, name)").execute()
-    query2 = f"'{genesysToolsFolder_id}' in parents and trashed = false"
-    results2 = drive_service.files().list(q=query2, fields="nextPageToken, files(id, name)").execute()
-
-    Installers = []
-    Tools = []
-
-    # Imprimimos los IDs y nombres de los archivos
-    for file in results.get('files', []):
-        Installers.append((file.get('id'),file.get('name')))
-
-    for file in results2.get('files', []):
-        Tools.append((file.get('id'),file.get('name')))  
-
-    return Installers,Tools
-
-#Funcion para obtener la lista de aplicaciones instaladas en la compu
-def GetInstalledApps():
-    ListOfInstalledApps=[]
-    for app in winapps.list_installed():
-        ListOfInstalledApps.append(app.name) #Crear una lista con las apps instaladas en la compu
-    return(ListOfInstalledApps)
 
 
-#Funcion para comparar la lista de aplicaciones instaladas en la compu con la carpeta de GDrive que contiene las apps de soporte
-#y obtener la lista con apps faltantes por instalar
-def CompareApps(ListOfInstalledApps):
-    aux = 0
-    MissingApps=[]
-    for j in programas:
-        for i in ListOfInstalledApps:
-            if j in i:
-                aux = 1
-        if aux == 0:
-            MissingApps.append(j) # Guardar en una lista las apps de soporte que faltan por instalar
-        else:
-            aux = 0
-    return MissingApps
+# Funcion de Google para buscar los archivos dentro de un folder de GDrive
+def Finder(*args: Any) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+    """List installer and tool files in configured Google Drive folders."""
+    return find_files(Path(args[0]), config, _show_auth_message)
 
-#Funcion para instalar colocar Check las aplicaciones que no fueron detectadas
-def scanApps():
-# Coloca check en las aplicaciones que faltan por instalar
-    MissingApps = CompareApps(GetInstalledApps())
+
+def GetInstalledApps() -> List[str]:
+    """Return installed application names from local machine."""
+    return get_installed_apps()
+
+
+def CompareApps(list_of_installed_apps: List[str]) -> List[str]:
+    """Compare expected programs against installed apps and return missing ones."""
+    return compare_apps(programas, list_of_installed_apps)
+
+
+def scanApps() -> None:
+    """Mark checkboxes according to missing applications in the system."""
+    missing_apps = CompareApps(GetInstalledApps())
     for i in range(len(softwareApps_check)):
-        for j in range(len(MissingApps)): 
-            if softwareApps_check[i].cget("text") in MissingApps[j]:
+        for j in range(len(missing_apps)):
+            if softwareApps_check[i].cget("text") in missing_apps[j]:
                 softwareApps_check[i].select()
-                softwareApps_check[i].config(fg='red')
+                softwareApps_check[i].config(fg="red")
             else:
-                softwareApps_check[i].config(fg='#48e120')
+                softwareApps_check[i].config(fg="#48e120")
                 softwareApps_check[i].deselect()
-    if len(MissingApps) == 0:
+    if len(missing_apps) == 0:
         for i in range(len(softwareApps_check)):
-            softwareApps_check[i].config(fg='#48e120')
-            softwareApps_check[i].deselect()       
-    return
+            softwareApps_check[i].config(fg="#48e120")
+            softwareApps_check[i].deselect()
 
-#Funcion para establer si se desea o no guardar los archivos de instalacion
-def saveFolder():
-    toolsDirectory = filedialog.askdirectory()
-    print(toolsDirectory)
-    return toolsDirectory
 
-def openFolder(directory):
+def saveFolder() -> str:
+    """Open file dialog and return selected folder path."""
+    tools_directory = filedialog.askdirectory()
+    print(tools_directory)
+    return tools_directory
+
+
+def openFolder(directory: str) -> None:
+    """Open installers or tools directory in Windows Explorer."""
     if directory == "app":
-        dir = RootPath+'\\'+InstallDir
-        subprocess.Popen(f'explorer "{dir}"')
+        folder = installers_path()
     else:
-        dir = RootPath+'\\'+toolsDir
-        subprocess.Popen(f'explorer "{dir}"')
+        folder = tools_path()
+    subprocess.Popen(f'explorer "{folder}"')
 
-#=====================Interfaz Grafica=========================#
-#main window
+
+# =====================Interfaz Grafica=========================#
 window = tkinter.Tk()
 logo = tkinter.PhotoImage(file=config["icon"])
-#DESCOMENTAR PARA PYINSTALLERlogo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
+# DESCOMENTAR PARA PYINSTALLERlogo = tkinter.PhotoImage(file=resource_path("assets\\mutant_icon.png"))
 window.iconphoto(False, logo)
 window.title("Instalador de aplicaciones")
 window.resizable(width=False, height=False)
 
-#main frame
 frame = tkinter.Frame(window)
 frame.pack()
 
-#First frame for PCScan
 firstStep_frame = tkinter.LabelFrame(frame, text="Paso 1 - Escaner")
-firstStep_frame.grid(row=0 , column=0, padx=10, pady=10, sticky="news")
+firstStep_frame.grid(row=0, column=0, padx=10, pady=10, sticky="news")
 
 firstStep_frame.columnconfigure(0, weight=1)
 firstStep_frame.rowconfigure(0, weight=1)
 
-informationv1_label = tkinter.Label(firstStep_frame, text="Al presionar el boton escanear, se tildaran las aplicaciones que no hemos detectado en tu PC")
-informationv1_label.grid(row=0 , column=0, padx=10, pady=10)
+informationv1_label = tkinter.Label(
+    firstStep_frame,
+    text="Al presionar el boton escanear, se tildaran las aplicaciones que no hemos detectado en tu PC",
+)
+informationv1_label.grid(row=0, column=0, padx=10, pady=10)
 
-informationv2_label = tkinter.Label(firstStep_frame, text="En color verde las instaladas y en color rojo las que no estan instaladas en tu PC")
-informationv2_label.grid(row=1 , column=0, padx=10, pady=10)
+informationv2_label = tkinter.Label(
+    firstStep_frame,
+    text="En color verde las instaladas y en color rojo las que no estan instaladas en tu PC",
+)
+informationv2_label.grid(row=1, column=0, padx=10, pady=10)
 
-scanButton =  tkinter.Button(firstStep_frame, text="Escanear", command=lambda : scanApps())
-scanButton.grid(row= 2, column=0, padx=10, pady=10)
+scanButton = tkinter.Button(firstStep_frame, text="Escanear", command=lambda: scanApps())
+scanButton.grid(row=2, column=0, padx=10, pady=10)
 
-#Second frame for apps list and download
 secondStep_frame = tkinter.LabelFrame(frame, text="Paso 2 - Descargar e Instalar")
-secondStep_frame.grid(row= 1, column=0, sticky="news", padx=10, pady=10)
+secondStep_frame.grid(row=1, column=0, sticky="news", padx=10, pady=10)
 
 secondStep_frame.columnconfigure(0, weight=1)
 secondStep_frame.rowconfigure(0, weight=1)
 
 informationv2_label = tkinter.Label(secondStep_frame, text="Selecciona las Apps y herramientas que deseas descargar:")
-informationv2_label.grid(row=0 , column=0, padx=10, pady=10)
+informationv2_label.grid(row=0, column=0, padx=10, pady=10)
 
 configLabel_frame = tkinter.LabelFrame(secondStep_frame, text="Directorios")
 configLabel_frame.grid(row=1, column=0, padx=10, pady=10)
 
-installersPath_label = tkinter.Label(configLabel_frame, text="Directorio de Instaladores: "+RootPath+'\\'+InstallDir)
-installersPath_label.grid(row=0, column=0, sticky='w', padx=5, pady=5)
+installersPath_label = tkinter.Label(configLabel_frame, text=f"Directorio de Instaladores: {installers_path()}")
+installersPath_label.grid(row=0, column=0, sticky="w", padx=5, pady=5)
 
-toolsPath_label = tkinter.Label(configLabel_frame, text="Directorio de Herramientas: "+RootPath+'\\'+toolsDir)
-toolsPath_label.grid(row=1, column=0, sticky='w', padx=5, pady=5)
+toolsPath_label = tkinter.Label(configLabel_frame, text=f"Directorio de Herramientas: {tools_path()}")
+toolsPath_label.grid(row=1, column=0, sticky="w", padx=5, pady=5)
 
 software_label_frame = tkinter.LabelFrame(secondStep_frame, text="Software y Apps")
 software_label_frame.grid(row=2, padx=10, pady=10)
 
-AllApps = Finder(RootPath)#Traer todas las apps de la carpeta de GDrive
-programas= []
+AllApps = Finder(str(root_path()))
+programas = []
 for app in AllApps[0]:
-    app_name = app[1].split('.')[0]
+    app_name = app[1].split(".")[0]
     programas.append(app_name)
-# Crea una lista para guardar los checkboxes
+
 softwareApps_check = []
 programas_sorted = sorted(programas, key=str.lower)
-# Crea los checkboxes para cada programa
-check=[tkinter.IntVar() for _ in programas]
-for iPrograms, programa in enumerate(programas_sorted): 
+
+check = [tkinter.IntVar() for _ in programas]
+for iPrograms, programa in enumerate(programas_sorted):
     programa = programa.strip()
     checkbox = tkinter.Checkbutton(software_label_frame, text=programa, variable=check[iPrograms])
     checkbox.grid(row=iPrograms // 3, column=iPrograms % 3, padx=2, pady=2, sticky="w")
-    softwareApps_check.append(checkbox)   
-      
+    softwareApps_check.append(checkbox)
 
 genesys_label_frame = tkinter.LabelFrame(secondStep_frame, text="Genesys Tools")
-genesys_label_frame.grid(row=3 ,column=0, padx=10, pady=10)
+genesys_label_frame.grid(row=3, column=0, padx=10, pady=10)
 
-#Crear los checkbox con las tools dentro de la carpeta de tools
 tools = []
 for app in AllApps[1]:
-    app_name = app[1].split('.')[0]
+    app_name = app[1].split(".")[0]
     tools.append(app_name)
 
-genesysTool_check = []  
+genesysTool_check = []
 
-check_tool=[tkinter.IntVar() for _ in tools]
+check_tool = [tkinter.IntVar() for _ in tools]
 for i, tool in enumerate(tools):
-    toolCheckbox=tkinter.Checkbutton(genesys_label_frame, text=tool, variable=check_tool[i])
+    toolCheckbox = tkinter.Checkbutton(genesys_label_frame, text=tool, variable=check_tool[i])
     toolCheckbox.grid(row=i // 3, column=i % 3, padx=5, pady=5, sticky="w")
     genesysTool_check.append(toolCheckbox)
 
 downloadButton = tkinter.Button(software_label_frame, text="Descargar", command=lambda: downloadFiles("apps"))
-downloadButton.grid(row=iPrograms+1, column=2, padx=5, pady=5, sticky="w")
+downloadButton.grid(row=iPrograms + 1, column=2, padx=5, pady=5, sticky="w")
 
 installButton = tkinter.Button(software_label_frame, text="Instalar", command=installPrograms)
-installButton.grid(row= iPrograms+1, column=2, padx=5, pady=5, sticky="e")
+installButton.grid(row=iPrograms + 1, column=2, padx=5, pady=5, sticky="e")
 
-downloadInstallButton =  tkinter.Button(genesys_label_frame, text="Descargar e Instalar", command=lambda: downloadFiles("tools"))
-downloadInstallButton.grid(row=i+1, column=2, padx=5, pady=5, sticky="e")
+downloadInstallButton = tkinter.Button(
+    genesys_label_frame,
+    text="Descargar e Instalar",
+    command=lambda: downloadFiles("tools"),
+)
+downloadInstallButton.grid(row=i + 1, column=2, padx=5, pady=5, sticky="e")
 
-#third frame for finish
 thirdStep_frame = tkinter.LabelFrame(frame, text="Paso 3 - Finalizar")
-thirdStep_frame.grid(row=2 , column=0, padx=10, pady=10,sticky="news")
+thirdStep_frame.grid(row=2, column=0, padx=10, pady=10, sticky="news")
 
 thirdStep_frame.columnconfigure(0, weight=1)
 thirdStep_frame.rowconfigure(0, weight=1)
 
-checkSave=tkinter.IntVar()
-openInstallersFolder_Button =  tkinter.Button(thirdStep_frame, text="Abrir carpeta de instaladores", command=lambda: openFolder("app"))
-openInstallersFolder_Button.grid(row=0, column=0, padx=5, pady=5,sticky="e")
+checkSave = tkinter.IntVar()
+openInstallersFolder_Button = tkinter.Button(
+    thirdStep_frame,
+    text="Abrir carpeta de instaladores",
+    command=lambda: openFolder("app"),
+)
+openInstallersFolder_Button.grid(row=0, column=0, padx=5, pady=5, sticky="e")
 
-openToolsFolder_Button =  tkinter.Button(thirdStep_frame, text="Abrir carpeta de Herramientas", command=lambda: openFolder("tools"))
-openToolsFolder_Button.grid(row=0, column=0, padx=5, pady=5,sticky="w")
+openToolsFolder_Button = tkinter.Button(
+    thirdStep_frame,
+    text="Abrir carpeta de Herramientas",
+    command=lambda: openFolder("tools"),
+)
+openToolsFolder_Button.grid(row=0, column=0, padx=5, pady=5, sticky="w")
 
 exitButton = tkinter.Button(thirdStep_frame, text="Salir", command=exit)
-exitButton.grid(row= 1, column=0, padx=10, pady=10)
+exitButton.grid(row=1, column=0, padx=10, pady=10)
 
 window.mainloop()
