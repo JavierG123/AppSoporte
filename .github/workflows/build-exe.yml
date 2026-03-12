@@ -31,7 +31,7 @@ jobs:
           Path("requirements-ci.txt").write_text(content, encoding="utf-8")
           PY
           pip install -r requirements-ci.txt
-          pip install pyinstaller
+          pip install pyinstaller pillow
 
       - name: Build executable with PyInstaller
         run: pyinstaller SupportAppInstaller.spec
